@@ -1,14 +1,14 @@
-# Samantha Voice Assistant - Setup Instructions
+# Rizzler - Setup Instructions
 
 ## Overview
-This voice assistant now includes a bulletproof 3-minute session management system with Solana payment integration.
+Rizzler is a simplified text-based AI dating coach with a 5-minute daily limit system. No microphone or payment functionality required.
 
 ## Key Features
-- **3-minute free trial** for each unique device/browser
-- **Bulletproof session management** that persists across page refreshes
-- **Solana wallet integration** for payments
-- **Device fingerprinting** to prevent abuse
-- **Automatic session termination** after 3 minutes
+- **5-minute daily limit** for each unique device/browser
+- **Text-based chat interface** - no microphone required
+- **Automatic daily reset** at midnight
+- **Session persistence** across page refreshes
+- **No payments** - completely free with usage limits
 
 ## Setup Steps
 
@@ -18,95 +18,89 @@ Create a `.env.local` file in the root directory with the following:
 ```env
 # OpenAI API Key (required)
 OPENAI_API_KEY=your_openai_api_key_here
-
-# Solana Configuration
-NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-NEXT_PUBLIC_PAYMENT_WALLET_ADDRESS=YOUR_ACTUAL_SOLANA_WALLET_ADDRESS_HERE
-NEXT_PUBLIC_PAYMENT_AMOUNT_SOL=0.01
-NEXT_PUBLIC_NETWORK=mainnet-beta
 ```
 
-### 2. Configure Your Wallet Address
-**IMPORTANT**: You must update the `NEXT_PUBLIC_PAYMENT_WALLET_ADDRESS` with your actual Solana wallet address where you want to receive payments.
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-### 3. Install Dependencies
-The Solana wallet adapter packages have already been installed:
-- @solana/web3.js
-- @solana/wallet-adapter-react
-- @solana/wallet-adapter-react-ui
-- @solana/wallet-adapter-wallets
-- @solana/wallet-adapter-base
-
-### 4. Session Management Details
+### 3. Daily Limit System Details
 
 #### How It Works:
-1. **First Visit**: Users get a 3-minute free trial
-2. **Session Tracking**: Uses device fingerprinting and localStorage
-3. **Timer Display**: Shows countdown in top-right corner
-4. **Warnings**: Voice warnings at 60s, 30s, and 10s remaining
-5. **Session End**: Automatic termination with payment modal
+1. **First Visit**: Users get 5 minutes of free time per day
+2. **Session Tracking**: Uses localStorage for daily usage tracking
+3. **Timer Display**: Shows countdown in top-right corner during chat
+4. **Daily Reset**: Automatically resets at midnight local time
+5. **Session End**: Automatic termination when daily limit is reached
 
 #### Session Data Structure:
 - Unique device ID based on browser fingerprint
-- Total time used (persists across sessions)
-- Payment status
-- Wallet address (if paid)
-- Transaction ID (if paid)
+- Daily time used (persists across sessions)
+- Last used date for daily reset logic
+- Session ID for server-side validation
 
-### 5. Testing
+### 4. Testing
 
-#### Test Free Trial:
+#### Test Daily Limit:
 1. Open the app in a new browser/incognito window
-2. Click the central orb to start
-3. Watch the 3-minute countdown
-4. Session will end automatically
+2. Click "Start Elite Coaching" to begin
+3. Watch the 5-minute countdown
+4. Session will end automatically when limit is reached
 
-#### Test Payment:
-1. Use Phantom, Solflare, or other Solana wallets
-2. Connect wallet when prompted
-3. Approve the 0.01 SOL transaction
-4. Enjoy unlimited access
+#### Test Daily Reset:
+1. Use the app until daily limit is reached
+2. Wait until after midnight (or manually change date)
+3. Refresh the page
+4. You should have 5 minutes available again
 
-### 6. Production Considerations
+## Development
 
-1. **RPC Endpoint**: Consider using a dedicated RPC endpoint for better performance
-2. **Network**: Currently set to mainnet-beta, change to devnet for testing
-3. **Price**: Adjust `NEXT_PUBLIC_PAYMENT_AMOUNT_SOL` as needed
-4. **Session Duration**: Change `SESSION_DURATION` in `sessionManager.ts` (currently 180 seconds)
+### Key Files:
+- `src/components/SimpleChatInterface.tsx` - Main chat interface
+- `src/lib/sessionManager.ts` - Daily limit management
+- `src/lib/database.ts` - User session storage
+- `src/app/api/chat/route.ts` - AI conversation endpoint
+- `src/app/api/session/route.ts` - Session management
 
-### 7. Security Features
+### Daily Limit Implementation:
+- **Client-side**: localStorage tracks daily usage
+- **Server-side**: Database validates and enforces limits
+- **Reset logic**: Automatic reset at midnight local time
+- **Usage tracking**: 30 seconds per chat interaction
 
-- **Device Fingerprinting**: Prevents users from simply clearing cookies
-- **Server-side Validation**: Add server-side payment verification for production
-- **Session Expiry**: Sessions expire after 24 hours of inactivity
-- **Secure Storage**: Session data encrypted in localStorage
+### Customization:
+- **Change daily limit**: Modify `DAILY_LIMIT` in `sessionManager.ts`
+- **Adjust usage per interaction**: Change the 30-second value in `chat/route.ts`
+- **Modify reset time**: Update the date comparison logic
 
-### 8. Troubleshooting
+## Production Deployment
 
-**Session not starting?**
-- Check browser console for errors
-- Ensure microphone permissions are granted
-- Try clearing localStorage and refreshing
+### Environment Setup:
+1. Set `OPENAI_API_KEY` in your production environment
+2. Replace in-memory database with PostgreSQL/MongoDB
+3. Configure proper session storage
 
-**Payment not working?**
-- Ensure wallet is connected to correct network
-- Check wallet has sufficient SOL balance
-- Verify correct wallet address in env variables
+### Database Migration:
+For production, replace the in-memory database with a real database:
+- Update `database.ts` to use your preferred database
+- Implement proper session cleanup
+- Add database connection pooling
 
-**Timer not showing?**
-- Session must be started first
-- Check for JavaScript errors in console
+## Troubleshooting
 
-## Important Notes
+### Common Issues:
+1. **Daily limit not resetting**: Check browser's date/time settings
+2. **Session not persisting**: Ensure localStorage is enabled
+3. **API errors**: Verify OpenAI API key is valid
+4. **Rate limiting**: Check API usage limits
 
-1. **Replace the wallet address** in environment variables with your actual Solana wallet
-2. **Test thoroughly** on devnet before deploying to mainnet
-3. **Monitor API costs** - each session uses OpenAI API calls
-4. **Consider rate limiting** on the API endpoint for additional protection
+### Debug Mode:
+Enable debug logging by setting `NODE_ENV=development` in your environment variables.
 
-## Support
+## Security Notes
 
-For issues or questions, please check:
-- Browser console for errors
-- Network tab for API failures
-- Solana transaction status on explorer 
+- All user inputs are validated and sanitized
+- Rate limiting is implemented on API endpoints
+- No sensitive personal data is stored
+- Session IDs are cryptographically secure 

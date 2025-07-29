@@ -8,17 +8,19 @@ interface Message {
   timestamp: number;
 }
 
-interface RizzlerChatInterfaceProps {
+interface SimpleChatInterfaceProps {
   sessionId: string;
 }
 
-export default function RizzlerChatInterface({
+export default function SimpleChatInterface({
   sessionId
-}: RizzlerChatInterfaceProps) {
+}: SimpleChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,11 +32,53 @@ export default function RizzlerChatInterface({
     scrollToBottom();
   }, [messages]);
 
+  // Check daily limit on mount
+  useEffect(() => {
+    const checkDailyLimit = () => {
+      const today = new Date().toDateString();
+      const lastUsed = localStorage.getItem('rizzler_last_used');
+      const timeUsed = parseInt(localStorage.getItem('rizzler_time_used') || '0');
+      
+      if (lastUsed === today && timeUsed >= 300) {
+        setDailyLimitReached(true);
+        setTimeLeft(0);
+      } else if (lastUsed !== today) {
+        // Reset for new day
+        localStorage.setItem('rizzler_last_used', today);
+        localStorage.setItem('rizzler_time_used', '0');
+        setTimeLeft(300);
+      } else {
+        setTimeLeft(300 - timeUsed);
+      }
+    };
+    
+    checkDailyLimit();
+  }, []);
+
+  // Timer countdown
+  useEffect(() => {
+    if (!hasStarted || dailyLimitReached || timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        const newTime = prev - 1;
+        if (newTime <= 0) {
+          setDailyLimitReached(true);
+          clearInterval(timer);
+          return 0;
+        }
+        return newTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasStarted, dailyLimitReached, timeLeft]);
+
   useEffect(() => {
     if (hasStarted && messages.length === 0) {
       const welcomeMessage: Message = {
         role: 'assistant',
-        content: "Welcome to Rizzler! I'm your elite dating coach specializing in attraction psychology and conversation mastery. Whether you need killer pickup lines, magnetic bio optimization, or advanced social dynamics - I'll transform your dating game from basic to legendary. What challenge should we tackle first?",
+        content: "Welcome to Rizzler! I'm your elite dating coach specializing in attraction psychology and conversation mastery. You have 5 minutes of free time today. What challenge should we tackle first?",
         timestamp: Date.now()
       };
       setMessages([welcomeMessage]);
@@ -42,12 +86,13 @@ export default function RizzlerChatInterface({
   }, [hasStarted, messages.length]);
 
   const handleStartChat = () => {
+    if (dailyLimitReached) return;
     setHasStarted(true);
     inputRef.current?.focus();
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || dailyLimitReached || timeLeft <= 0) return;
 
     const userMessage: Message = {
       role: 'user',
@@ -85,11 +130,16 @@ export default function RizzlerChatInterface({
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Update time used
+      const timeUsed = parseInt(localStorage.getItem('rizzler_time_used') || '0');
+      localStorage.setItem('rizzler_time_used', (timeUsed + 30).toString()); // Assume 30 seconds per interaction
+      
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Please check your internet connection and try again. If the issue persists, you may need to activate premium access.",
+        content: "I'm having trouble connecting right now. Please check your internet connection and try again.",
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -115,6 +165,7 @@ export default function RizzlerChatInterface({
   ];
 
   const handleQuickAction = (action: string) => {
+    if (dailyLimitReached || timeLeft <= 0) return;
     setInputValue(action);
     inputRef.current?.focus();
   };
@@ -133,31 +184,29 @@ export default function RizzlerChatInterface({
     return messageTime.toLocaleDateString();
   };
 
+  const formatTimeLeft = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   if (!hasStarted) {
     return (
       <div style={styles.welcomeContainer}>
         <style>{componentStyles}</style>
-        {/* Background Effects */}
-        <div style={styles.backgroundEffects}>
-          <div style={styles.bgEffect1}></div>
-          <div style={styles.bgEffect2}></div>
-        </div>
         
         <div style={styles.welcomeContent}>
           <div style={styles.welcomeInner}>
-            {/* Premium Logo */}
+            {/* Logo */}
             <div style={styles.logoContainer}>
               <div style={styles.logoWrapper}>
-                <div style={styles.logoShadow1}></div>
-                <div style={styles.logoShadow2}></div>
                 <div style={styles.logoMain}>
                   <div style={styles.logoText}>R</div>
-                  <div style={styles.logoGradient}></div>
                 </div>
               </div>
             </div>
 
-            {/* Premium Title */}
+            {/* Title */}
             <h1 style={styles.title}>RIZZLER</h1>
             
             <div style={styles.subtitleContainer}>
@@ -170,15 +219,18 @@ export default function RizzlerChatInterface({
               Transform your dating game with expert psychology, proven techniques, and legendary confidence building.
             </p>
 
-            <button onClick={handleStartChat} style={styles.startButton}>
-              <div style={styles.buttonGradient}></div>
-              <span style={styles.buttonContent}>
-                <span>Start Elite Coaching</span>
-                <svg style={styles.buttonIcon} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </span>
-            </button>
+            {dailyLimitReached ? (
+              <div style={styles.limitReached}>
+                <p style={styles.limitText}>Daily limit reached. Come back tomorrow for more coaching!</p>
+              </div>
+            ) : (
+              <button onClick={handleStartChat} style={styles.startButton}>
+                <span style={styles.buttonContent}>
+                  <span>Start Elite Coaching</span>
+                  <span style={styles.timeLimit}>5 min daily limit</span>
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -189,13 +241,7 @@ export default function RizzlerChatInterface({
     <div style={styles.chatContainer}>
       <style>{componentStyles}</style>
       
-      {/* Subtle Background Effects */}
-      <div style={styles.chatBackgroundEffects}>
-        <div style={styles.chatBgEffect1}></div>
-        <div style={styles.chatBgEffect2}></div>
-      </div>
-
-      {/* Premium Header */}
+      {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerContent}>
           <div style={styles.headerInfo}>
@@ -209,10 +255,15 @@ export default function RizzlerChatInterface({
               </div>
             </div>
             <div style={styles.headerRight}>
-              <div style={styles.onlineStatus}>
-                <div style={styles.onlineDot}></div>
-                <span style={styles.onlineText}>Online</span>
-              </div>
+              {dailyLimitReached ? (
+                <div style={styles.limitStatus}>
+                  <span style={styles.limitStatusText}>Daily limit reached</span>
+                </div>
+              ) : (
+                <div style={styles.timeStatus}>
+                  <span style={styles.timeStatusText}>{formatTimeLeft(timeLeft)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -226,7 +277,7 @@ export default function RizzlerChatInterface({
               {messages.map((message, index) => (
                 <div key={index} style={message.role === 'user' ? styles.messageRowUser : styles.messageRowAssistant}>
                   <div style={message.role === 'user' ? styles.messageContainerUser : styles.messageContainerAssistant}>
-                    {/* Enhanced Avatar */}
+                    {/* Avatar */}
                     <div style={message.role === 'user' ? styles.avatarUser : styles.avatarAssistant}>
                       {message.role === 'user' ? (
                         <svg style={styles.avatarIcon} fill="currentColor" viewBox="0 0 20 20">
@@ -237,13 +288,13 @@ export default function RizzlerChatInterface({
                       )}
                     </div>
 
-                    {/* Enhanced Message Container */}
+                    {/* Message Container */}
                     <div style={styles.messageWrapper}>
                       <div style={message.role === 'user' ? styles.messageBubbleUser : styles.messageBubbleAssistant}>
                         <p style={styles.messageText}>{message.content}</p>
                       </div>
                       
-                      {/* Enhanced Timestamp */}
+                      {/* Timestamp */}
                       <div style={message.role === 'user' ? styles.timestampUser : styles.timestampAssistant}>
                         {formatTime(message.timestamp)}
                       </div>
@@ -252,7 +303,7 @@ export default function RizzlerChatInterface({
                 </div>
               ))}
               
-              {/* Enhanced Loading Indicator */}
+              {/* Loading Indicator */}
               {isLoading && (
                 <div style={styles.messageRowAssistant}>
                   <div style={styles.messageContainerAssistant}>
@@ -281,8 +332,8 @@ export default function RizzlerChatInterface({
         </div>
       </div>
 
-      {/* Enhanced Quick Actions */}
-      {messages.length <= 1 && (
+      {/* Quick Actions */}
+      {messages.length <= 1 && !dailyLimitReached && (
         <div style={styles.quickActionsContainer}>
           <div style={styles.quickActionsWrapper}>
             <p style={styles.quickActionsTitle}>
@@ -297,16 +348,6 @@ export default function RizzlerChatInterface({
                   key={index}
                   onClick={() => handleQuickAction(action)}
                   style={styles.quickActionButton}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.6)';
-                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.4)';
-                    e.currentTarget.style.borderColor = 'rgba(55, 65, 81, 0.5)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
                 >
                   <span>{action}</span>
                 </button>
@@ -316,7 +357,7 @@ export default function RizzlerChatInterface({
         </div>
       )}
 
-      {/* Premium Input Area */}
+      {/* Input Area */}
       <div style={styles.inputContainer}>
         <div style={styles.inputWrapper}>
           <div style={styles.inputRow}>
@@ -327,34 +368,18 @@ export default function RizzlerChatInterface({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type your challenge or question..."
-                style={styles.inputField}
-                disabled={isLoading}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                placeholder={dailyLimitReached ? "Daily limit reached. Come back tomorrow!" : "Type your challenge or question..."}
+                style={{
+                  ...styles.inputField,
+                  ...(dailyLimitReached && styles.inputFieldDisabled)
                 }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(55, 65, 81, 0.5)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
+                disabled={isLoading || dailyLimitReached}
               />
-              <div style={styles.inputGradient}></div>
             </div>
             <button
               onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isLoading || dailyLimitReached}
               style={styles.sendButton}
-              onMouseEnter={(e) => {
-                if (!e.currentTarget.disabled) {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-              }}
             >
               {isLoading ? (
                 <div style={styles.spinner}></div>
@@ -371,7 +396,7 @@ export default function RizzlerChatInterface({
   );
 }
 
-// Complete CSS-in-JS styles to avoid any conflicts
+// Styles
 const styles = {
   // Welcome Screen Styles
   welcomeContainer: {
@@ -384,31 +409,6 @@ const styles = {
     position: 'relative' as const,
     overflow: 'hidden',
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  backgroundEffects: {
-    position: 'absolute' as const,
-    inset: '0',
-    pointerEvents: 'none' as const,
-  },
-  bgEffect1: {
-    position: 'absolute' as const,
-    top: '25%',
-    left: '25%',
-    width: '384px',
-    height: '384px',
-    background: 'radial-gradient(circle, rgba(239, 68, 68, 0.05) 0%, transparent 70%)',
-    borderRadius: '50%',
-    filter: 'blur(60px)',
-  },
-  bgEffect2: {
-    position: 'absolute' as const,
-    bottom: '25%',
-    right: '25%',
-    width: '384px',
-    height: '384px',
-    background: 'radial-gradient(circle, rgba(220, 38, 38, 0.05) 0%, transparent 70%)',
-    borderRadius: '50%',
-    filter: 'blur(60px)',
   },
   welcomeContent: {
     width: '100%',
@@ -430,23 +430,6 @@ const styles = {
     margin: '0 auto',
     position: 'relative' as const,
   },
-  logoShadow1: {
-    position: 'absolute' as const,
-    inset: '0',
-    background: 'linear-gradient(45deg, #ef4444, #dc2626, #b91c1c)',
-    borderRadius: '24px',
-    transform: 'rotate(3deg)',
-    opacity: 0.2,
-    filter: 'blur(4px)',
-  },
-  logoShadow2: {
-    position: 'absolute' as const,
-    inset: '0',
-    background: 'linear-gradient(45deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2))',
-    borderRadius: '24px',
-    transform: 'rotate(6deg)',
-    filter: 'blur(16px)',
-  },
   logoMain: {
     position: 'relative' as const,
     width: '100%',
@@ -463,12 +446,6 @@ const styles = {
     fontWeight: '900',
     color: 'white',
     filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))',
-  },
-  logoGradient: {
-    position: 'absolute' as const,
-    inset: '0',
-    background: 'linear-gradient(to top, transparent, rgba(255, 255, 255, 0.1))',
-    borderRadius: '24px',
   },
   title: {
     fontSize: '48px',
@@ -524,26 +501,32 @@ const styles = {
     overflow: 'hidden',
     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
   },
-  buttonGradient: {
-    position: 'absolute' as const,
-    inset: '0',
-    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0), rgba(255, 255, 255, 0.1), rgba(239, 68, 68, 0))',
-    borderRadius: '16px',
-    opacity: 0,
-    transition: 'opacity 0.3s ease',
-  },
   buttonContent: {
     position: 'relative' as const,
     display: 'flex',
+    flexDirection: 'column' as const,
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
     zIndex: 10,
   },
-  buttonIcon: {
-    width: '20px',
-    height: '20px',
-    transition: 'transform 0.3s ease',
+  timeLimit: {
+    fontSize: '14px',
+    opacity: 0.8,
+    fontWeight: '500',
+  },
+  limitReached: {
+    padding: '20px',
+    background: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: '16px',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+  },
+  limitText: {
+    color: '#f87171',
+    fontSize: '16px',
+    fontWeight: '600',
+    margin: '0',
+    textAlign: 'center' as const,
   },
 
   // Chat Interface Styles
@@ -554,32 +537,6 @@ const styles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  chatBackgroundEffects: {
-    position: 'absolute' as const,
-    inset: '0',
-    overflow: 'hidden',
-    pointerEvents: 'none' as const,
-  },
-  chatBgEffect1: {
-    position: 'absolute' as const,
-    top: '0',
-    left: '25%',
-    width: '384px',
-    height: '384px',
-    background: 'radial-gradient(circle, rgba(239, 68, 68, 0.03) 0%, transparent 70%)',
-    borderRadius: '50%',
-    filter: 'blur(60px)',
-  },
-  chatBgEffect2: {
-    position: 'absolute' as const,
-    bottom: '0',
-    right: '25%',
-    width: '384px',
-    height: '384px',
-    background: 'radial-gradient(circle, rgba(220, 38, 38, 0.03) 0%, transparent 70%)',
-    borderRadius: '50%',
-    filter: 'blur(60px)',
   },
   header: {
     position: 'relative' as const,
@@ -637,7 +594,7 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
   },
-  onlineStatus: {
+  timeStatus: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
@@ -646,18 +603,24 @@ const styles = {
     borderRadius: '20px',
     border: '1px solid rgba(55, 65, 81, 0.5)',
   },
-  onlineDot: {
-    width: '8px',
-    height: '8px',
-    backgroundColor: '#4ade80',
-    borderRadius: '50%',
-    animation: 'pulse 2s infinite',
-    boxShadow: '0 0 6px rgba(74, 222, 128, 0.5)',
-  },
-  onlineText: {
+  timeStatusText: {
     color: '#d1d5db',
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  limitStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(239, 68, 68, 0.1)',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+  },
+  limitStatusText: {
+    color: '#f87171',
+    fontSize: '14px',
+    fontWeight: '600',
   },
   messagesContainer: {
     flex: '1',
@@ -904,14 +867,9 @@ const styles = {
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     fontFamily: 'inherit',
   },
-  inputGradient: {
-    position: 'absolute' as const,
-    inset: '0',
-    borderRadius: '16px',
-    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0), rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0))',
-    opacity: 0,
-    transition: 'opacity 0.3s ease',
-    pointerEvents: 'none' as const,
+  inputFieldDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
   sendButton: {
     width: '48px',
@@ -987,4 +945,4 @@ const componentStyles = `
     opacity: 0.5;
     cursor: not-allowed;
   }
-`;
+`; 

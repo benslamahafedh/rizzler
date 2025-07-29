@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { InputValidator } from '@/lib/inputValidation';
+import { Database } from '@/lib/database';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -90,6 +91,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message content is invalid' }, { status: 400 });
     }
 
+    // Check daily limit
+    if (sessionId) {
+      const database = Database.getInstance();
+      const accessResult = await database.hasAccess(sessionId);
+      
+      if (!accessResult.hasAccess) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Daily limit reached. Please try again tomorrow.' 
+        }, { status: 403 });
+      }
+    }
+
     // SECURITY FIX: Sanitize conversation history (limit to last 3 exchanges for speed)
     let sanitizedHistory = [];
     try {
@@ -126,7 +140,7 @@ export async function POST(req: NextRequest) {
       presence_penalty: 0.1,
       frequency_penalty: 0.1
     });
-    console.log('✅ GPT-3.5-turbo success');
+    console.log('✅ GPT-4o-mini success');
 
     const response = completion.choices[0]?.message?.content;
     console.log('📤 OpenAI response:', response);
@@ -145,6 +159,12 @@ export async function POST(req: NextRequest) {
     // Ensure it's not empty
     if (!cleanResponse || cleanResponse.length < 2) {
       cleanResponse = "I'm listening.";
+    }
+
+    // Update daily usage (assume 30 seconds per interaction)
+    if (sessionId) {
+      const database = Database.getInstance();
+      await database.updateDailyUsage(sessionId, 30 * 1000); // 30 seconds in milliseconds
     }
 
     console.log('✅ Clean response:', cleanResponse);

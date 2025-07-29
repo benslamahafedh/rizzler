@@ -45,18 +45,12 @@ export async function POST(req: NextRequest) {
       isNew: result.isNew,
       hasAccess: accessResult.hasAccess,
       reason: accessResult.reason,
-      trialExpiresAt: accessResult.trialExpiresAt,
-      accessExpiresAt: accessResult.accessExpiresAt,
-      user: {
+      user: result.user ? {
         sessionId: (result.user as any).sessionId,
-        walletAddress: (result.user as any).walletAddress,
-        referenceId: (result.user as any).referenceId,
-        isPaid: (result.user as any).isPaid,
-        amountReceived: (result.user as any).amountReceived,
         createdAt: (result.user as any).createdAt,
-        trialExpiresAt: (result.user as any).trialExpiresAt,
-        accessExpiresAt: (result.user as any).accessExpiresAt
-      }
+        dailyLimitUsed: (result.user as any).dailyLimitUsed,
+        lastUsedDate: (result.user as any).lastUsedDate
+      } : null
     });
 
   } catch (error: unknown) {
@@ -110,14 +104,11 @@ export async function GET(req: NextRequest) {
       sessionId,
       hasAccess: accessResult.hasAccess,
       reason: accessResult.reason,
-      trialExpiresAt: accessResult.trialExpiresAt,
-      accessExpiresAt: accessResult.accessExpiresAt,
       user: accessResult.user ? {
         sessionId: (accessResult.user as any).sessionId,
-        walletAddress: (accessResult.user as any).walletAddress,
-        referenceId: (accessResult.user as any).referenceId,
-        isPaid: (accessResult.user as any).isPaid,
-        createdAt: (accessResult.user as any).createdAt
+        createdAt: (accessResult.user as any).createdAt,
+        dailyLimitUsed: (accessResult.user as any).dailyLimitUsed,
+        lastUsedDate: (accessResult.user as any).lastUsedDate
       } : null
     });
 

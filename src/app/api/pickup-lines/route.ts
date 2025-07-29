@@ -113,9 +113,7 @@ export const POST = requireAccess(async (req: NextRequest, accessResult: AccessC
       pickupLines: response.trim(),
       category: categoryValidation.sanitized,
       accessInfo: {
-        reason: accessResult.reason,
-        trialExpiresAt: accessResult.trialExpiresAt,
-        accessExpiresAt: accessResult.accessExpiresAt
+        reason: accessResult.reason
       }
     });
 

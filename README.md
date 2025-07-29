@@ -1,136 +1,151 @@
-# Rizzler - Dating Coach
+# Rizzler - Elite Dating Coach
 
-Level up your dating game with AI-powered pickup lines, bio optimization, and flirting tips. Get personalized advice to boost your confidence and success in dating.
+A simplified text-based AI dating coach that provides expert advice on pickup lines, conversation mastery, and confidence building.
 
-## ✨ Features
+## Features
 
-- **Pickup Line Generator**: Get clever, smooth, funny, or situational pickup lines
-- **Tinder Bio Optimizer**: Create magnetic bios that get matches
-- **Conversation Coaching**: Learn how to start and maintain engaging conversations
-- **Flirting Techniques**: Master the art of playful and confident interaction
-- **Text Game Training**: Improve your messaging skills and timing
-- **Confidence Building**: Professional advice to boost your dating confidence
+- **Text-based chat interface** - Clean, modern UI for seamless conversation
+- **5-minute daily limit** - Free daily access with automatic reset
+- **Expert dating advice** - Specialized in pickup lines, profile optimization, and social dynamics
+- **No microphone required** - Pure text-based interaction
+- **No payments** - Completely free with daily usage limits
+- **Mobile optimized** - Works perfectly on all devices
 
-## 🚀 Quick Start
+## How It Works
 
-1. **Clone the repository**:
+1. **Start chatting** - Click "Start Elite Coaching" to begin
+2. **Ask questions** - Get advice on pickup lines, dating profiles, conversation techniques
+3. **Daily limit** - 5 minutes of free time per day, resets at midnight
+4. **Expert guidance** - Receive professional dating advice and strategies
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+ 
+- OpenAI API key
+
+### Setup
+
+1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd rizzler-dating-coach
+   cd samantha-voice-assistant
    ```
 
-2. **Install dependencies**:
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Set up environment variables**:
-   Create a `.env.local` file in the root directory:
-   ```
+3. **Environment variables**
+   Create a `.env.local` file:
+   ```env
    OPENAI_API_KEY=your_openai_api_key_here
-   SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
    ```
 
-4. **Run the development server**:
+4. **Run the development server**
    ```bash
    npm run dev
    ```
 
-5. **Open your browser** and navigate to `http://localhost:3000`
+5. **Open your browser**
+   Navigate to `http://localhost:3000`
 
-6. **Start your coaching session** and level up your game!
+## Usage
 
-## 🎯 How It Works
+### For Users
 
-- **Professional Interface**: Clean, text-based chat without distractions
-- **Specialized Tools**: Dedicated generators for pickup lines and bios
-- **Personalized Advice**: Context-aware suggestions based on your situation
-- **Instant Results**: Get immediate feedback and suggestions
-- **Professional Tone**: No emojis, focused on real results
+1. **Open the app** - You'll see the Rizzler welcome screen
+2. **Start coaching** - Click "Start Elite Coaching" to begin your session
+3. **Ask questions** - Type your dating challenges or questions
+4. **Get advice** - Receive expert guidance on pickup lines, profiles, and more
+5. **Daily limit** - You get 5 minutes per day, resets at midnight
 
-## 🛠️ Technology Stack
+### Example Questions
 
-- **Frontend**: Next.js 15 with TypeScript
-- **Styling**: TailwindCSS with custom red theme
-- **Animations**: Framer Motion for smooth interactions
-- **AI**: OpenAI GPT-4 for intelligent coaching
-- **Payments**: Solana infrastructure for premium access
-- **Deployment**: Ready for Railway.app or Vercel
+- "Generate some killer pickup lines for a coffee shop"
+- "Help me optimize my Tinder bio"
+- "How do I keep a conversation flowing naturally?"
+- "What are some advanced flirting techniques?"
+- "How do I build unshakeable confidence?"
 
-## 📱 Features Overview
+## Technical Details
 
-### **Pickup Line Categories**
-- **Clever/Witty**: Smart wordplay and intelligent humor
-- **Smooth/Charming**: Suave and sophisticated approaches
-- **Direct/Confident**: Bold and straightforward lines
-- **Funny/Playful**: Light-hearted and humorous approaches
-- **Situational**: Context-specific lines for different scenarios
-- **Professional**: Appropriate for workplace or formal settings
+### Architecture
 
-### **Tinder Bio Optimization**
-- **Lead with uniqueness**: Highlight your most interesting traits
-- **Conversation starters**: Include hooks that spark interest
-- **Personality showcase**: Balance confidence with approachability
-- **Multiple variations**: Get 2-3 bio options to choose from
-- **Professional quality**: Clean, emoji-free formatting
+- **Frontend**: Next.js 14 with React
+- **Backend**: Next.js API routes
+- **AI**: OpenAI GPT-4o-mini
+- **Database**: In-memory storage (replace with PostgreSQL/MongoDB in production)
+- **Styling**: CSS-in-JS with custom design system
 
-### **Conversation Training**
-- **Opening techniques**: Master the art of first impressions
-- **Flow maintenance**: Keep conversations engaging and natural
-- **Timing strategies**: Learn when to text and when to wait
-- **Interest building**: Create intrigue and maintain attraction
-- **Confidence building**: Develop authentic self-assurance
+### Key Components
 
-## 🎨 Design Philosophy
+- `SimpleChatInterface.tsx` - Main chat interface
+- `sessionManager.ts` - Daily limit management
+- `database.ts` - User session storage
+- `chat/route.ts` - AI conversation API
 
-Rizzler focuses on:
+### Daily Limit System
 
-- **Professional Results**: Clean, effective advice without gimmicks
-- **Authentic Confidence**: Building real skills, not just lines
-- **Respectful Approach**: All advice maintains dignity and respect
-- **Practical Application**: Tools you can use immediately
-- **Continuous Improvement**: Learn and adapt your approach
+- **5 minutes per day** - Tracks usage in milliseconds
+- **Automatic reset** - Resets at midnight local time
+- **Session persistence** - Remembers usage across browser sessions
+- **Local storage** - Uses localStorage for client-side tracking
 
-## 🔧 Configuration
+## Development
 
-### OpenAI Settings
+### Project Structure
 
-The coaching system uses GPT-4 with optimized parameters:
-- **Temperature**: 0.8-0.9 (creative but focused responses)
-- **Max Tokens**: 300-500 (comprehensive but concise advice)
-- **Specialized Prompts**: Custom prompts for each coaching category
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── chat/          # AI conversation endpoint
+│   │   └── session/       # Session management
+│   ├── page.tsx           # Main page
+│   └── layout.tsx         # App layout
+├── components/
+│   └── SimpleChatInterface.tsx  # Main chat component
+└── lib/
+    ├── database.ts        # User data management
+    ├── sessionManager.ts  # Session handling
+    └── inputValidation.ts # Security validation
+```
 
-### Payment System
+### Adding Features
 
-- **Free Trial**: 3 minutes of coaching to get started
-- **Premium Access**: 0.0009 SOL for 1 hour of unlimited coaching
-- **Secure Payments**: Solana blockchain for fast, secure transactions
+1. **New chat features** - Modify `SimpleChatInterface.tsx`
+2. **API endpoints** - Add routes in `src/app/api/`
+3. **Database changes** - Update `database.ts` and `sessionManager.ts`
+4. **Styling** - Update CSS-in-JS styles in components
 
-## 🎭 Rizzler's Coaching Style
+### Production Deployment
 
-Rizzler is designed to be:
-- **Direct and Honest**: Straightforward advice without sugar-coating
-- **Results-Focused**: Every tip aims for real-world success
-- **Confidence-Building**: Empowering rather than dependency-creating
-- **Respectful**: All advice maintains dignity for everyone involved
-- **Professional**: Clean, focused communication without distractions
+1. **Database** - Replace in-memory storage with PostgreSQL/MongoDB
+2. **Environment** - Set production environment variables
+3. **Deploy** - Deploy to Vercel, Railway, or your preferred platform
 
-## 🚀 Getting Started with Coaching
+## Security
 
-1. **Start a Session**: Click "Start Coaching Session" to begin
-2. **Choose Your Focus**: Select from quick actions or ask specific questions
-3. **Get Personalized Advice**: Receive tailored suggestions for your situation
-4. **Practice and Apply**: Use the tools and techniques in real situations
-5. **Iterate and Improve**: Come back for more advanced coaching
+- **Input validation** - All user inputs are sanitized
+- **Rate limiting** - API endpoints are rate-limited
+- **Session validation** - Secure session management
+- **No sensitive data** - No personal information stored
 
-## 📈 Success Metrics
+## Contributing
 
-Track your progress with:
-- **Confidence levels**: Self-assessment of dating confidence
-- **Conversation quality**: Improved flow and engagement
-- **Match rates**: Better success on dating platforms
-- **Real connections**: More meaningful interactions and relationships
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
----
+## License
 
-**Ready to level up your dating game? Start your coaching session now!**
+This project is licensed under the MIT License.
+
+## Support
+
+For questions or issues, please open an issue on GitHub.

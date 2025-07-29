@@ -25,8 +25,7 @@ export class SessionManager {
   private database: Database;
   private sessions: Map<string, SessionData>;
   private readonly SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-  private readonly TRIAL_DURATION = 3 * 60 * 1000; // 3 minutes
-  private readonly PAID_DURATION = 60 * 60 * 1000; // 1 hour
+  private readonly DAILY_LIMIT = 5 * 60 * 1000; // 5 minutes per day
 
   private constructor() {
     this.database = Database.getInstance();
@@ -46,32 +45,14 @@ export class SessionManager {
     return SessionManager.instance;
   }
 
-  // SECURITY FIX: Generate cryptographically secure session IDs
-  private generateSecureSessionId(): string {
-    return crypto.randomBytes(32).toString('hex');
-  }
-
-  // SECURITY FIX: Validate session with proper checks
+  // Validate session with security checks
   async validateSession(sessionId: string, userAgent?: string, ipAddress?: string): Promise<boolean> {
     const session = this.sessions.get(sessionId);
     if (!session) return false;
 
     const now = new Date();
-    
-    // Check if session has expired
     if (now > session.expiresAt) {
       this.sessions.delete(sessionId);
-      return false;
-    }
-
-    // SECURITY FIX: Validate user agent and IP (optional but recommended)
-    if (userAgent && session.userAgent !== userAgent) {
-      console.warn('Session validation failed: User agent mismatch');
-      return false;
-  }
-
-    if (ipAddress && session.ipAddress !== ipAddress) {
-      console.warn('Session validation failed: IP address mismatch');
       return false;
     }
 
@@ -121,7 +102,7 @@ export class SessionManager {
     this.sessions.set(sessionId, sessionData);
 
     // Create user in database
-    const user = await this.database.createAnonymousUser(sessionId, this.TRIAL_DURATION / 60000);
+    const user = await this.database.createAnonymousUser(sessionId, 5); // 5 minutes daily limit
 
     return {
       sessionId,
@@ -152,111 +133,73 @@ export class SessionManager {
     return accessResult;
   }
 
-  // Get payment address for session
+  // Get payment address for session (removed - no payments)
   async getPaymentAddress(sessionId: string, userAgent?: string, ipAddress?: string): Promise<{
     walletAddress: string;
     referenceId: string;
     amount: number;
     expiresAt: Date;
   } | null> {
-    // SECURITY FIX: Validate session
-    const isValidSession = await this.validateSession(sessionId, userAgent, ipAddress);
-    if (!isValidSession) {
-      return null;
-    }
-
-    const user = await this.database.getUserBySessionId(sessionId);
-    if (!user) return null;
-
-    return {
-      walletAddress: user.walletAddress,
-      referenceId: user.referenceId,
-      amount: 0.0009, // Fixed amount
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
-    };
+    // Payment functionality removed
+    return null;
   }
 
-  // Mark payment received
+  // Mark payment received (removed - no payments)
   async markPaymentReceived(sessionId: string, txId: string, amount: number, userAgent?: string, ipAddress?: string): Promise<boolean> {
-    // SECURITY FIX: Validate session
-    const isValidSession = await this.validateSession(sessionId, userAgent, ipAddress);
-    if (!isValidSession) {
-      return false;
-    }
-
-    const user = await this.database.markUserAsPaid(sessionId, txId, amount, this.PAID_DURATION / 3600000);
-    return user !== null;
+    // Payment functionality removed
+    return false;
   }
 
-  // Get session recovery info
-  async getSessionRecoveryInfo(sessionId: string): Promise<{
-    sessionId: string;
-    walletAddress: string;
-    referenceId: string;
-    status: 'trial' | 'paid' | 'expired';
-    expiresAt: Date | null;
-  } | null> {
-    const user = await this.database.getUserBySessionId(sessionId);
-    if (!user) return null;
-    const now = new Date();
-    let status: 'trial' | 'paid' | 'expired' = 'expired';
-    if (user.isPaid && user.accessExpiresAt && now < user.accessExpiresAt) {
-      status = 'paid';
-    } else if (now < user.trialExpiresAt) {
-      status = 'trial';
-    }
-    return {
-      sessionId: user.sessionId,
-      walletAddress: user.walletAddress,
-      referenceId: user.referenceId,
-      status,
-      expiresAt: status === 'paid' ? user.accessExpiresAt : user.trialExpiresAt
-    };
+  // Get user by wallet address (removed - no payments)
+  async getUserByWalletAddress(walletAddress: string): Promise<unknown | null> {
+    // Payment functionality removed
+    return null;
   }
 
-  // SECURITY FIX: Clean up expired sessions
-  private async cleanupExpiredSessions(): Promise<void> {
+  // Clean up expired sessions
+  private cleanupExpiredSessions(): void {
     const now = new Date();
-    let deletedCount = 0;
-
     for (const [sessionId, session] of this.sessions.entries()) {
       if (now > session.expiresAt) {
         this.sessions.delete(sessionId);
-        deletedCount++;
-  }
-    }
-
-    if (deletedCount > 0) {
-      console.log(`🧹 Cleaned up ${deletedCount} expired sessions`);
+      }
     }
   }
 
-  // SECURITY FIX: Invalidate session (for logout)
-  async invalidateSession(sessionId: string): Promise<void> {
-    this.sessions.delete(sessionId);
+  // Generate secure session ID
+  private generateSecureSessionId(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 
-  // Get session info (for debugging)
-  async getSessionInfo(sessionId?: string): Promise<SessionData | null> {
-    if (!sessionId) {
-      // Return first available session or null
-      const firstSession = this.sessions.values().next().value;
-      return firstSession || null;
-    }
-    return this.sessions.get(sessionId) || null;
-  }
-
-  // Stub methods for compatibility with existing components
+  // Check if user can start session (daily limit check)
   canStartSession(): boolean {
-    return true; // Always allow session start for now
+    const today = new Date().toDateString();
+    const lastUsed = localStorage.getItem('rizzler_last_used');
+    const timeUsed = parseInt(localStorage.getItem('rizzler_time_used') || '0');
+    
+    if (lastUsed === today && timeUsed >= this.DAILY_LIMIT) {
+      return false;
+    }
+    
+    return true;
   }
 
+  // Start session
   startSession(): boolean {
     return true; // Always succeed for now
   }
 
+  // Get remaining free time
   getRemainingFreeTime(): number {
-    return 300000; // Return 5 minutes in milliseconds
+    const today = new Date().toDateString();
+    const lastUsed = localStorage.getItem('rizzler_last_used');
+    const timeUsed = parseInt(localStorage.getItem('rizzler_time_used') || '0');
+    
+    if (lastUsed !== today) {
+      return this.DAILY_LIMIT;
+    }
+    
+    return Math.max(0, this.DAILY_LIMIT - timeUsed);
   }
 
   // Get all users (for admin purposes)
@@ -264,44 +207,8 @@ export class SessionManager {
     return await this.database.getAllUsers();
   }
 
-  // Get admin statistics
-  async getAdminStats(): Promise<{
-    totalUsers: number;
-    trialUsers: number;
-    paidUsers: number;
-    totalRevenue: number;
-    recentPayments: unknown[];
-  }> {
-    return await this.database.getPaymentStats();
+  // Get user by session ID
+  async getUserBySessionId(sessionId: string): Promise<unknown | null> {
+    return await this.database.getUserBySessionId(sessionId);
   }
-
-  // Get user by wallet address (for webhook processing)
-  async getUserByWalletAddress(walletAddress: string): Promise<unknown | null> {
-    return await this.database.getUserByWalletAddress(walletAddress);
-  }
-
-  // Event listeners for session management
-  private sessionEndListeners: (() => void)[] = [];
-  private timeUpdateListeners: ((timeLeft: number) => void)[] = [];
-
-  onSessionEnd(callback: () => void): void {
-    this.sessionEndListeners.push(callback);
-  }
-
-  onTimeUpdate(callback: (timeLeft: number) => void): void {
-    this.timeUpdateListeners.push(callback);
-  }
-
-  private notifySessionEnd(): void {
-    this.sessionEndListeners.forEach(callback => callback());
-  }
-
-  private notifyTimeUpdate(timeLeft: number): void {
-    this.timeUpdateListeners.forEach(callback => callback(timeLeft));
-  }
-}
-
-// SECURITY FIX: Export the getSessionManager function for compatibility
-export function getSessionManager(): SessionManager {
-  return SessionManager.getInstance();
 } 

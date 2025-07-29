@@ -7,8 +7,6 @@ export interface AccessControlResult {
   reason: string;
   sessionId?: string;
   user?: any;
-  trialExpiresAt?: Date;
-  accessExpiresAt?: Date;
 }
 
 export class AccessControl {
@@ -62,9 +60,7 @@ export class AccessControl {
         hasAccess: accessResult.hasAccess,
         reason: accessResult.reason,
         sessionId,
-        user: accessResult.user,
-        trialExpiresAt: accessResult.trialExpiresAt,
-        accessExpiresAt: accessResult.accessExpiresAt
+        user: accessResult.user
       };
 
     } catch (error) {
@@ -104,8 +100,7 @@ export class AccessControl {
     return NextResponse.json({
       success: false,
       error: 'Access denied',
-      reason,
-      requiresPayment: reason.includes('No active access') || reason.includes('Trial expired')
+      reason
     }, { status: 403 });
   }
 
@@ -148,47 +143,38 @@ export class AccessControl {
   }
 
   /**
-   * Get remaining trial time for a session
+   * Get remaining daily time for a session
    */
-  static async getRemainingTrialTime(sessionId: string): Promise<number> {
+  static async getRemainingDailyTime(sessionId: string): Promise<number> {
     try {
       const accessResult = await this.sessionManager.checkAccess(sessionId);
       
-      if (accessResult.reason === 'Trial access active' && accessResult.trialExpiresAt) {
-        const now = new Date();
-        const timeLeft = Math.max(0, accessResult.trialExpiresAt.getTime() - now.getTime());
-        return Math.floor(timeLeft / 1000); // Return seconds
+      if (accessResult.hasAccess) {
+        // Calculate remaining time based on daily limit
+        const dailyLimit = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const user = accessResult.user;
+        
+        if (user && (user as any).dailyLimitUsed !== undefined) {
+          return Math.max(0, dailyLimit - (user as any).dailyLimitUsed);
+        }
       }
       
       return 0;
     } catch (error) {
-      console.error('Error getting remaining trial time:', error);
+      console.error('Error getting remaining daily time:', error);
       return 0;
     }
   }
 
   /**
-   * Check if session is in trial period
+   * Check if session has daily access
    */
-  static async isInTrialPeriod(sessionId: string): Promise<boolean> {
+  static async hasDailyAccess(sessionId: string): Promise<boolean> {
     try {
       const accessResult = await this.sessionManager.checkAccess(sessionId);
-      return accessResult.reason === 'Trial access active';
+      return accessResult.hasAccess;
     } catch (error) {
-      console.error('Error checking trial period:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Check if session has paid access
-   */
-  static async hasPaidAccess(sessionId: string): Promise<boolean> {
-    try {
-      const accessResult = await this.sessionManager.checkAccess(sessionId);
-      return accessResult.reason === 'Paid access active';
-    } catch (error) {
-      console.error('Error checking paid access:', error);
+      console.error('Error checking daily access:', error);
       return false;
     }
   }
@@ -216,7 +202,7 @@ export function requireAccess(handler: (req: NextRequest, accessResult: AccessCo
             const body = await clonedReq.json();
             sessionId = body.sessionId || null;
           } else if (contentType.includes('multipart/form-data')) {
-            // Handle FormData requests (like transcribe endpoint)
+            // Handle FormData requests
             const formData = await clonedReq.formData();
             sessionId = formData.get('sessionId') as string || null;
           } else {
@@ -265,9 +251,7 @@ export function requireAccess(handler: (req: NextRequest, accessResult: AccessCo
           hasAccess: accessResult.hasAccess,
           reason: accessResult.reason,
           sessionId,
-          user: accessResult.user,
-          trialExpiresAt: accessResult.trialExpiresAt,
-          accessExpiresAt: accessResult.accessExpiresAt
+          user: accessResult.user
         });
       } else {
         // Fallback to header-based validation

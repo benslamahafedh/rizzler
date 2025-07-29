@@ -140,9 +140,7 @@ export const POST = requireAccess(async (req: NextRequest, accessResult: AccessC
       success: true,
       bios: response.trim(),
       accessInfo: {
-        reason: accessResult.reason,
-        trialExpiresAt: accessResult.trialExpiresAt,
-        accessExpiresAt: accessResult.accessExpiresAt
+        reason: accessResult.reason
       }
     });
 

@@ -1,27 +1,11 @@
 
 
-// Solana functionality temporarily disabled for build
-let Keypair: any, PublicKey: any;
-
-// TODO: Re-enable Solana functionality after fixing build issues
-// if (typeof window === 'undefined') {
-//   const solanaWeb3 = require('@solana/web3.js');
-//   Keypair = solanaWeb3.Keypair;
-//   PublicKey = solanaWeb3.PublicKey;
-// }
-
 // In-memory database (in production, use PostgreSQL, MongoDB, etc.)
 interface AnonymousUser {
   sessionId: string;
-  walletAddress: string;
   createdAt: Date;
-  trialExpiresAt: Date;
-  isPaid: boolean;
-  txId: string | null;
-  amountReceived: number | null;
-  paymentReceivedAt: Date | null;
-  accessExpiresAt: Date | null;
-  referenceId: string;
+  dailyLimitUsed: number; // Time used today in milliseconds
+  lastUsedDate: string; // Date string for daily reset
 }
 
 // Global in-memory store (replace with real database in production)
@@ -38,7 +22,6 @@ export class Database {
   private static instance: Database;
   private users: Map<string, AnonymousUser>;
 
-
   private constructor() {
     this.users = global.anonymousUsers!;
   }
@@ -50,109 +33,95 @@ export class Database {
     return Database.instance;
   }
 
-  // Create new anonymous user with trial access
-  async createAnonymousUser(sessionId: string, trialDurationMinutes: number = 3): Promise<AnonymousUser> {
+  // Create new anonymous user with daily limit
+  async createAnonymousUser(sessionId: string, dailyLimitMinutes: number = 5): Promise<AnonymousUser> {
     const now = new Date();
-    const trialExpiresAt = new Date(now.getTime() + trialDurationMinutes * 60 * 1000);
-    
-    // Generate unique wallet address for this user (temporarily using mock data)
-    const walletAddress = `mock_wallet_${sessionId.substring(0, 8)}`;
-    
-    // Generate reference ID for tracking
-    const referenceId = this.generateReferenceId(sessionId);
+    const today = now.toDateString();
     
     const user: AnonymousUser = {
       sessionId,
-      walletAddress,
       createdAt: now,
-      trialExpiresAt,
-      isPaid: false,
-      txId: null,
-      amountReceived: null,
-      paymentReceivedAt: null,
-      accessExpiresAt: null,
-      referenceId
+      dailyLimitUsed: 0,
+      lastUsedDate: today
     };
 
     this.users.set(sessionId, user);
     return user;
   }
 
-
-
   // Get user by session ID
   async getUserBySessionId(sessionId: string): Promise<AnonymousUser | null> {
     return this.users.get(sessionId) || null;
   }
 
-  // Get user by wallet address
-  async getUserByWalletAddress(walletAddress: string): Promise<AnonymousUser | null> {
-    for (const user of this.users.values()) {
-      if (user.walletAddress === walletAddress) {
-        return user;
-      }
-    }
-    return null;
-  }
-
-  // Update user payment status
-  async markUserAsPaid(
-    sessionId: string, 
-    txId: string, 
-    amountReceived: number,
-    accessDurationHours: number = 1
-  ): Promise<AnonymousUser | null> {
-    const user = this.users.get(sessionId);
-    if (!user) return null;
-
-    const now = new Date();
-    const accessExpiresAt = new Date(now.getTime() + accessDurationHours * 60 * 60 * 1000);
-
-    const updatedUser: AnonymousUser = {
-      ...user,
-      isPaid: true,
-      txId,
-      amountReceived,
-      paymentReceivedAt: now,
-      accessExpiresAt
-    };
-
-    this.users.set(sessionId, updatedUser);
-    return updatedUser;
-  }
-
-  // Check if user has access (trial or paid)
+  // Check if user has access (daily limit check)
   async hasAccess(sessionId: string): Promise<{ hasAccess: boolean; reason: string; user?: AnonymousUser }> {
     const user = this.users.get(sessionId);
     if (!user) {
       return { hasAccess: false, reason: 'User not found' };
     }
 
-    const now = new Date();
+    const today = new Date().toDateString();
+    const dailyLimit = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-    // Check if user has paid access
-    if (user.isPaid && user.accessExpiresAt && now < user.accessExpiresAt) {
-      return { 
-        hasAccess: true, 
-        reason: 'Paid access active', 
-        user 
-      };
+    // Reset daily limit if it's a new day
+    if (user.lastUsedDate !== today) {
+      user.dailyLimitUsed = 0;
+      user.lastUsedDate = today;
+      this.users.set(sessionId, user);
     }
 
-    // Check if user has trial access
-    if (now < user.trialExpiresAt) {
+    // Check if user has exceeded daily limit
+    if (user.dailyLimitUsed >= dailyLimit) {
       return { 
-        hasAccess: true, 
-        reason: 'Trial access active', 
+        hasAccess: false, 
+        reason: 'Daily limit reached', 
         user 
       };
     }
 
     return { 
-      hasAccess: false, 
-      reason: 'No active access', 
+      hasAccess: true, 
+      reason: 'Daily limit active', 
       user 
     };
+  }
+
+  // Update user's daily usage
+  async updateDailyUsage(sessionId: string, timeUsed: number): Promise<boolean> {
+    const user = this.users.get(sessionId);
+    if (!user) return false;
+
+    const today = new Date().toDateString();
+    const dailyLimit = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    // Reset daily limit if it's a new day
+    if (user.lastUsedDate !== today) {
+      user.dailyLimitUsed = 0;
+      user.lastUsedDate = today;
+    }
+
+    // Update usage
+    user.dailyLimitUsed = Math.min(user.dailyLimitUsed + timeUsed, dailyLimit);
+    this.users.set(sessionId, user);
+    
+    return true;
+  }
+
+  // Get remaining time for user
+  async getRemainingTime(sessionId: string): Promise<number> {
+    const user = this.users.get(sessionId);
+    if (!user) return 0;
+
+    const today = new Date().toDateString();
+    const dailyLimit = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    // Reset daily limit if it's a new day
+    if (user.lastUsedDate !== today) {
+      return dailyLimit;
+    }
+
+    return Math.max(0, dailyLimit - user.dailyLimitUsed);
   }
 
   // Get all users (for admin purposes)
@@ -160,62 +129,20 @@ export class Database {
     return Array.from(this.users.values());
   }
 
-  // Get payment statistics
-  async getPaymentStats(): Promise<{
-    totalUsers: number;
-    trialUsers: number;
-    paidUsers: number;
-    totalRevenue: number;
-    recentPayments: Omit<AnonymousUser, 'encryptedPrivateKey'>[];
-  }> {
-    const users = Array.from(this.users.values());
+  // Clean up old sessions (optional maintenance)
+  async cleanupOldSessions(): Promise<number> {
     const now = new Date();
-
-    const trialUsers = users.filter(u => !u.isPaid && now < u.trialExpiresAt).length;
-    const paidUsers = users.filter(u => u.isPaid && u.accessExpiresAt && now < u.accessExpiresAt).length;
-    const totalRevenue = users
-      .filter(u => u.isPaid && u.amountReceived)
-      .reduce((sum, u) => sum + (u.amountReceived || 0), 0);
-
-    const recentPayments = users
-      .filter(u => u.isPaid && u.paymentReceivedAt)
-      .sort((a, b) => (b.paymentReceivedAt?.getTime() || 0) - (a.paymentReceivedAt?.getTime() || 0))
-      .slice(0, 10)
-      .map(user => user);
-
-    return {
-      totalUsers: users.length,
-      trialUsers,
-      paidUsers,
-      totalRevenue,
-      recentPayments
-    };
-  }
-
-  // Clean up expired sessions (optional maintenance)
-  async cleanupExpiredSessions(): Promise<number> {
-    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     let deletedCount = 0;
 
     for (const [sessionId, user] of this.users.entries()) {
-      const isExpired = user.isPaid 
-        ? (user.accessExpiresAt && now > user.accessExpiresAt)
-        : (now > user.trialExpiresAt);
-
-      if (isExpired) {
+      if (user.createdAt < oneWeekAgo) {
         this.users.delete(sessionId);
         deletedCount++;
       }
     }
 
     return deletedCount;
-  }
-
-  // Generate unique reference ID
-  private generateReferenceId(sessionId: string): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${sessionId.slice(0, 8)}-${timestamp}-${random}`;
   }
 
   // Reset database (for testing/debugging)
