@@ -7,6 +7,7 @@ export class InputValidator {
   private static readonly MAX_WALLET_ADDRESS_LENGTH = 44;
   private static readonly MAX_REFERENCE_ID_LENGTH = 50;
   private static readonly MAX_MESSAGE_LENGTH = 500;
+  private static readonly MAX_IMAGE_MESSAGE_LENGTH = 50000; // Allow much longer messages for image uploads
   private static readonly MAX_USER_AGENT_LENGTH = 500;
   private static readonly MAX_IP_LENGTH = 45;
 
@@ -75,8 +76,12 @@ export class InputValidator {
       return { isValid: false, error: 'Message is required and must be a string' };
     }
 
-    if (message.length > this.MAX_MESSAGE_LENGTH) {
-      return { isValid: false, error: `Message too long (max ${this.MAX_MESSAGE_LENGTH} characters)` };
+    // Check if this is an image upload message
+    const isImageUpload = message.includes('data:image/') || message.includes('Analyze this conversation screenshot');
+    const maxLength = isImageUpload ? this.MAX_IMAGE_MESSAGE_LENGTH : this.MAX_MESSAGE_LENGTH;
+
+    if (message.length > maxLength) {
+      return { isValid: false, error: `Message too long (max ${maxLength} characters)` };
     }
 
     // SECURITY FIX: Remove potentially dangerous characters
@@ -84,8 +89,7 @@ export class InputValidator {
       .trim()
       .replace(/[<>]/g, '') // Remove angle brackets to prevent HTML injection
       .replace(/javascript:/gi, '') // Remove javascript: protocol
-      .replace(/data:/gi, '') // Remove data: protocol
-      .replace(/vbscript:/gi, ''); // Remove vbscript: protocol
+      .replace(/vbscript:/gi, ''); // Remove vbscript: protocol but keep data: for images
 
     if (sanitized.length === 0) {
       return { isValid: false, error: 'Message cannot be empty after sanitization' };

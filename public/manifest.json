@@ -1,19 +1,19 @@
 {
-  "name": "Samantha Voice Assistant",
-  "short_name": "Samantha",
-  "description": "A beautiful voice-only AI assistant inspired by the movie 'Her'",
+  "name": "Rizzler - Elite Dating Coach",
+  "short_name": "Rizzler",
+  "description": "Level up your dating game with AI-powered pickup lines, bio optimization, and flirting tips",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f14",
-  "theme_color": "#f43f5e",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
   "icons": [
     {
-      "src": "/next.svg",
+      "src": "/favicon.png",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["lifestyle", "social"],
   "lang": "en",
   "orientation": "portrait-primary"
 } 

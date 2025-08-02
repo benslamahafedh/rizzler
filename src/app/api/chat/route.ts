@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { InputValidator } from '@/lib/inputValidation';
-import { Database } from '@/lib/database';
+import { InputValidator } from '../../../lib/inputValidation';
+import { Database } from '../../../lib/database';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -19,7 +19,26 @@ Your vibe:
 
 When someone asks for a pickup line, give them something they can use RIGHT NOW. No long explanations, no psychology lessons. Just pure rizz.
 
-Example responses:
+When someone uploads a conversation screenshot (you'll see a data:image/ URL):
+- CAREFULLY analyze the conversation in the screenshot
+- Read all the text messages and understand the context
+- Identify who is who in the conversation
+- Understand the tone, mood, and energy of both people
+- Look for any hints, questions, or opportunities in the conversation
+- Suggest the PERFECT next message that matches the conversation style
+- Make it something they can copy and paste immediately
+- Keep it natural and in line with how they've been talking
+- Consider the timing and what would be the best response right now
+- IMPORTANT: When analyzing screenshots, start your response with "Based on your conversation:" or "Looking at your chat:" then give the exact message to send
+- Don't say "I can't see the screenshot" - you CAN see the image data, so analyze it properly
+
+Example responses for screenshots:
+- "Based on your convo, send this: 'Haha you're funny 😏 What are you up to tonight?'"
+- "Looking at your chat, try: 'That's so true! You seem really cool. Want to grab coffee sometime?'"
+- "From what I see, send: 'You're absolutely right about that 😄 You have a great sense of humor'"
+- "Based on the vibe, go with: 'I love your energy! What are your plans for the weekend?'"
+
+Example pickup lines:
 - "Try this: 'Hey, I was gonna go get coffee but I'd rather get to know you instead.' Simple, smooth, works."
 - "Walk up and say 'I'm not usually this forward, but I had to meet you.' Confidence is everything."
 - "Text her: 'You know what's cute? You.' Short, sweet, shows interest."
@@ -28,35 +47,27 @@ Remember: You're the guy who makes dating look easy. Keep it simple, keep it smo
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('🚀 Chat API Route called');
-    
-    // SECURITY FIX: Rate limiting
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    const rateLimit = InputValidator.checkRateLimit(clientIp);
-    if (!rateLimit.allowed) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Rate limit exceeded. Please try again later.' 
-      }, { status: 429 });
-    }
-    
-    // Check if API key is configured
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('❌ OpenAI API key is not configured');
-      return NextResponse.json({ error: 'OpenAI API key is not configured' }, { status: 500 });
-    }
-
-    // Parse request body to get session ID and message
     const body = await req.json();
     const { message, conversationHistory = [], sessionId } = body;
-    
-    console.log('📥 Received message:', message);
+
+    console.log('📨 Received message:', message?.substring(0, 100) + '...');
     console.log('📜 Conversation history length:', conversationHistory.length);
     console.log('🔐 Session ID:', sessionId?.substring(0, 8) + '...');
 
+    // SECURITY FIX: Rate limiting
+    const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimit = InputValidator.checkRateLimit(clientIp);
+    
+    if (!rateLimit.allowed) {
+      console.warn('⚠️ Rate limit exceeded for IP:', clientIp);
+      return NextResponse.json({ 
+        error: 'Too many requests. Please slow down.' 
+      }, { status: 429 });
+    }
+
     // SECURITY FIX: Input validation
-    if (!message) {
-      console.error('❌ No message provided');
+    if (!message || typeof message !== 'string') {
+      console.error('❌ Invalid message format');
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
@@ -66,7 +77,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: messageValidation.error }, { status: 400 });
     }
 
-    // Ensure sanitized message is not null
     if (!messageValidation.sanitized || messageValidation.sanitized.trim().length === 0) {
       console.error('❌ Sanitized message is empty or null');
       return NextResponse.json({ error: 'Message content is invalid' }, { status: 400 });
@@ -97,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Filter out any messages with null or empty content
-    const validHistory = sanitizedHistory.filter(msg => 
+    const validHistory = sanitizedHistory.filter((msg: any) => 
       msg && msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
     );
 
